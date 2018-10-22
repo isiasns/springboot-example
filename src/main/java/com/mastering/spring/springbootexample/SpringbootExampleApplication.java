@@ -2,10 +2,11 @@ package com.mastering.spring.springbootexample;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.context.ApplicationContext;
+import org.springframework.security.oauth2.config.annotation.web.configuration.EnableAuthorizationServer;
+import org.springframework.security.oauth2.config.annotation.web.configuration.EnableResourceServer;
 
-import java.util.Arrays;
-
+@EnableResourceServer
+@EnableAuthorizationServer
 @SpringBootApplication
 public class SpringbootExampleApplication {
 

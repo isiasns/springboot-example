@@ -6,17 +6,14 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.skyscreamer.jsonassert.JSONAssert;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.web.server.LocalServerPort;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.oauth2.client.DefaultOAuth2ClientContext;
+import org.springframework.security.oauth2.client.OAuth2RestTemplate;
+import org.springframework.security.oauth2.client.token.grant.password.ResourceOwnerPasswordResourceDetails;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import java.net.URI;
-import java.nio.charset.Charset;
-import java.util.Base64;
 import java.util.Date;
 
 import static org.hamcrest.CoreMatchers.containsString;
@@ -28,28 +25,15 @@ public class TodoControllerIT {
     @LocalServerPort
     private int port;
 
-    private TestRestTemplate template = new TestRestTemplate();
-    HttpHeaders headers = createHeaders("user", "12345678");
-
-    private HttpHeaders createHeaders(String username, String password) {
-        return new HttpHeaders(){
-            {
-                String auth = username + ":" + password;
-                byte[] encodedAuth = Base64.getEncoder().encode(auth.getBytes(Charset.forName("US-ASCII")));
-                String authHeader = "Basic " + new String(encodedAuth);
-                set("Authorization", authHeader);
-            }
-        };
-    }
-
     @Test
     public void retrieveTodos() throws Exception {
         String expected = "["
                 + "{id:1,user:Jack,desc:\"Learn Spring MVC\",done:false}" + ","
-                + "{id:2,user:Jack,desc:\"Learn Struts\",done:false}"
-                + "]";
+                + "{id:2,user:Jack,desc:\"Learn Struts\",done:false}" + "]";
         String uri = "/users/Jack/todos";
-        ResponseEntity<String> response = template.exchange(createUrl(uri), HttpMethod.GET, new HttpEntity<>(null, headers), String.class);
+        OAuth2RestTemplate oauthTemplate = getOAuth2("user", "12345678", "/oauth/token", "user", "87654321", "password");
+        ResponseEntity<String> response =
+                oauthTemplate.getForEntity(createUrl(uri), String.class);
         JSONAssert.assertEquals(expected, response.getBody(), false);
     }
 
@@ -60,15 +44,29 @@ public class TodoControllerIT {
     @Test
     public void retrieveTodo() throws Exception {
         String expected = "{id:1,user:Jack,desc:\"Learn Spring MVC\",done:false}";
-        ResponseEntity<String> response = template.exchange(createUrl("/users/Jack/todos/1"), HttpMethod.GET, new HttpEntity<>(null, headers), String.class);
+        OAuth2RestTemplate oauthTemplate = getOAuth2("user", "12345678", "/oauth/token", "user", "87654321", "password");
+        ResponseEntity<String> response =
+                oauthTemplate.getForEntity(createUrl("/users/Jack/todos/1"), String.class);
         JSONAssert.assertEquals(expected, response.getBody(), false);
     }
 
     @Test
     public void addTodo() throws Exception {
         Todo todo = new Todo(-1, "Jill", "Learn Hibernate", new Date(), false);
-        URI location = template.postForLocation(createUrl("/users/Jill/todos"), todo);
+        OAuth2RestTemplate oauthTemplate = getOAuth2("user", "12345678", "/oauth/token", "user", "87654321", "password");
+        URI location = oauthTemplate.postForLocation(createUrl("/users/Jill/todos"), todo);
         assertThat(location.getPath(), containsString("/users/Jill/todos/4"));
+    }
+
+    private OAuth2RestTemplate getOAuth2(String username, String password, String accessTokenUri, String clientId, String clientSecret, String grantType) {
+        ResourceOwnerPasswordResourceDetails resource = new ResourceOwnerPasswordResourceDetails();
+        resource.setUsername(username);
+        resource.setPassword(password);
+        resource.setAccessTokenUri(createUrl(accessTokenUri));
+        resource.setClientId(clientId);
+        resource.setClientSecret(clientSecret);
+        resource.setGrantType(grantType);
+        return new OAuth2RestTemplate(resource, new DefaultOAuth2ClientContext());
     }
 
 }
